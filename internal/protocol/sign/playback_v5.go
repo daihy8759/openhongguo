@@ -27,6 +27,9 @@ func (s *PlaybackV5Signer) Sign(pairs [][2]string, nowMillis int64, body []byte,
 	withTicket := append([][2]string(nil), pairs...)
 	slot := -1
 	for i, kv := range withTicket {
+		if kv[0] == "ts" {
+			continue
+		}
 		if kv[0] == "_rticket" {
 			slot = i
 			break
@@ -35,6 +38,14 @@ func (s *PlaybackV5Signer) Sign(pairs [][2]string, nowMillis int64, body []byte,
 	if slot < 0 {
 		withTicket = append(withTicket, [2]string{"_rticket", ""})
 		slot = len(withTicket) - 1
+	}
+	// 旧版播放协议要求 query 里带 ts（秒），与 x-khronos 一致；就地填写保持参数顺序。
+	tsText := strconv.FormatUint(uint64(ts), 10)
+	for i, kv := range withTicket {
+		if kv[0] == "ts" {
+			withTicket[i][1] = tsText
+			break
+		}
 	}
 	for offset := int64(0); offset < 1024; offset++ {
 		withTicket[slot][1] = strconv.FormatInt(nowMillis+offset, 10)
