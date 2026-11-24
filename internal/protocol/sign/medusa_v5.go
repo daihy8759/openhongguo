@@ -3,7 +3,6 @@ package sign
 import (
 	"encoding/base64"
 	"fmt"
-	"strconv"
 )
 
 // MedusaEnv is the device environment the v04.10.03 SDK reports inside
@@ -50,7 +49,8 @@ func DefaultMedusaEnv(launchMillis int64) MedusaEnv {
 		LaunchMillis: launchMillis,
 		Clock18:      766353820, Clock19: 16, Clock20: -1072050540,
 		Channel: "xiaomi_8662_64",
-		UnH:     2398682137, Sts: 27, Fkd: 1963693275, Pd: 1442983616,
+		// v04.06.04 档（PR #23）的 field 24 数值。
+		UnH:     1879194040, Sts: 27, Fkd: 3672518972, Pd: -1872573247,
 		Lp:     "2|520830913092|521433182354|2078052786776|1081701896",
 		Fl:     "0|0|2523408538|2586339478|997724116|0|0|0|0|606600138",
 		Status: medusaDeviceStatus,
@@ -65,10 +65,13 @@ type MedusaRandom struct {
 }
 
 const (
-	medusaV5Version    = 5
-	medusaV5SDKVersion = "v04.10.03-ml-android"
-	medusaV5SDKCode    = 0x040a0300
-	medusaV5EnvVersion = "v04.10.03.04-bugfix"
+	medusaV5Version = 5
+	// 回退到 PR #23 主张的 v04.06.04 档：服务端当前只接受这一档的常量。
+	// 与 playback_v5_constants.go 的 playbackV5License / Magic / SignKey 必须成组切换，
+	// 单独换一边会得到一个被服务端静默丢弃的混合体。
+	medusaV5SDKVersion = "v04.06.04-ml-android"
+	medusaV5SDKCode    = 0x04060400
+	medusaV5EnvVersion = "v04.06.04.03-bugfix"
 	medusaV5PackedHead = 0xca
 )
 
@@ -180,9 +183,10 @@ func medusaV5Device(deviceID string, env MedusaEnv) []byte {
 	out := concat(protoSInt(1, 1), protoString(3, appID), protoString(4, deviceID))
 	for tag := uint32(5); tag <= 40; tag++ {
 		switch {
-		case tag == 5 || tag == 6 || (tag >= 11 && tag <= 13) || tag == 15 || tag == 22 || (tag >= 30 && tag <= 37):
+		case tag == 5 || tag == 6 || tag == 7 || (tag >= 11 && tag <= 13) || tag == 15 || tag == 22 || (tag >= 30 && tag <= 37):
+			// tag 7 在 v04.06.04 档是字符串占位符（v04.10.03 是整数 -999999）。
 			out = append(out, protoString(tag, notSet)...)
-		case (tag >= 7 && tag <= 10) || tag == 14 || (tag >= 23 && tag <= 25) || tag == 27 || tag == 29 || tag == 38:
+		case (tag >= 8 && tag <= 10) || tag == 14 || (tag >= 23 && tag <= 25) || tag == 27 || tag == 29 || tag == 38:
 			out = append(out, protoSInt(tag, unsetInt)...)
 		case tag >= 16 && tag <= 21:
 			out = append(out, protoFloat(tag, unsetInt)...)
@@ -193,9 +197,13 @@ func medusaV5Device(deviceID string, env MedusaEnv) []byte {
 	return out
 }
 
+// medusaV5JSON is message field 24. The v04.06.04 profile (PR #23) sends the
+// shorter form: no sts / lp / fl, and do is already 0. Sts, Lp and Fl stay on
+// MedusaEnv so the v04.10.03 vectors still unmarshal and so switching back is
+// a one-line change.
 func medusaV5JSON(env MedusaEnv) string {
-	return fmt.Sprintf(`{"cmr":16777216,"cmr2":16777216,"un_h":%d,"vpn":0,"sts":%d,"kd":0,"fkd":%d,"pd":%d,"lp":%s,"fl":%s,"dyn":"","do":0,"tk":true}`,
-		env.UnH, env.Sts, env.Fkd, env.Pd, strconv.Quote(env.Lp), strconv.Quote(env.Fl))
+	return fmt.Sprintf(`{"cmr":16777216,"cmr2":16777216,"un_h":%d,"vpn":0,"kd":0,"fkd":%d,"pd":%d,"dyn":"","do":0,"tk":true}`,
+		env.UnH, env.Fkd, env.Pd)
 }
 
 // sealMedusaV5 encrypts a message into the x-medusa wire format.
