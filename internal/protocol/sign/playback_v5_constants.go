@@ -1,12 +1,10 @@
 package sign
 
-// 播放协议 v04.06.04 的公开线格式常量（服务端当前只接受这一档），与普通接口的 AES-V3 分开保存。
-const playbackV5License = "AXYQOS6n2m60x1fVZHIrH3iol"
+// 播放协议的两档线格式常量在 profile.go（ProfileV041003 / ProfileV04604）。
+// 这里只留下两档共用的 AES sbox。
 
 var (
-	playbackV5Magic   = mustHex("f7e85ffad7d7dc3bd62ac87057cf6118")
-	playbackV5SignKey = mustHex("8ebdfa3806ecc5cee79423e6029ed82540bc2218bb7eaef71cb691f7aa8aa2f5")
-	playbackV5Sbox    = mustHex(
+	playbackV5Sbox = mustHex(
 		"53290fe9e51f316f90f74a7e034d367784ab49237cd0135cdc632c322fd3be0e2624a417ecd9151a7ff64f60730a87f9445ec6ada2f865d22b696c4188f24c0d" +
 			"f37b75510b939f6bc2fe6883e68bc8c722181ba0bdb08c9871b50c9a16b46eea8eed20ba4b8a14e0fcf1468dbbef05a93e5a9d7dcf06898635c1fd99f5de287a" +
 			"80c594daaab19b6279fbd75070cb52eb2555c456e39e7839853874e2f0013ac0b64742d8ca10e4b79c955de8b843ce4ed464a6a72ed508091c92e7b3eedd1e1d" +

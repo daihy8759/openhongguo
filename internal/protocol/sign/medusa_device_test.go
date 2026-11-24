@@ -34,9 +34,9 @@ func TestMedusaV5MessageDeviceLayout(t *testing.T) {
 	const deviceID = "1234567890123456"
 	in, _ := newMedusaV5Input(deviceQuery, nil, 1763460000) // the digest variant does not matter here
 	env := DefaultMedusaEnv(1763459000000)
-	emulator := medusaV5Message(in, deviceID, env, MedusaRandom{})
+	emulator := medusaV5Message(&ProfileV041003, in, deviceID, env, MedusaRandom{})
 	env.Device = medusaDeviceOf(deviceQuery, deviceID)
-	device := medusaV5Message(in, deviceID, env, MedusaRandom{})
+	device := medusaV5Message(&ProfileV041003, in, deviceID, env, MedusaRandom{})
 
 	for name, want := range map[string][]byte{
 		"app version":   protoString(7, "7.4.3.32"),
@@ -58,8 +58,8 @@ func TestMedusaV5MessageDeviceLayout(t *testing.T) {
 	if n := strings.Count(string(device), notSet); n >= strings.Count(string(emulator), notSet) {
 		t.Errorf("device message has %d placeholders", n)
 	}
-	first := medusaV5Message(in, deviceID, env, MedusaRandom{})
-	second := medusaV5Message(in, deviceID, env, MedusaRandom{})
+	first := medusaV5Message(&ProfileV041003, in, deviceID, env, MedusaRandom{})
+	second := medusaV5Message(&ProfileV041003, in, deviceID, env, MedusaRandom{})
 	if bytes.Equal(first, second) {
 		t.Error("field 15's counter did not advance between signatures")
 	}
@@ -68,10 +68,10 @@ func TestMedusaV5MessageDeviceLayout(t *testing.T) {
 // x-gorgon carries the first two flag bytes and is keyed by them.
 func TestGorgonFlags(t *testing.T) {
 	emulator := xGorgon("a=1", nil, false, 1763460000, 0x1234)
-	if got := xGorgonFlags("a=1", nil, false, 1763460000, 0x1234, medusaEmulatorFlags); got != emulator {
+	if got := xGorgonFlags(&ProfileV041003, "a=1", nil, false, 1763460000, 0x1234, medusaEmulatorFlags); got != emulator {
 		t.Fatalf("emulator flags changed x-gorgon: %s != %s", got, emulator)
 	}
-	device, _ := hex.DecodeString(xGorgonFlags("a=1", nil, false, 1763460000, 0x1234, medusaDeviceFlags))
+	device, _ := hex.DecodeString(xGorgonFlags(&ProfileV041003, "a=1", nil, false, 1763460000, 0x1234, medusaDeviceFlags))
 	if device[4] != 0x04 || device[5] != 0x05 {
 		t.Fatalf("flag bytes = %x", device[4:6])
 	}

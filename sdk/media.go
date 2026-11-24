@@ -12,20 +12,35 @@ import (
 	"github.com/beilunyang/openhongguo/sdk/model"
 )
 
-// PlaybackOptions 预留给码流规格或接口的选择。
-type PlaybackOptions struct{}
+// PlaybackOptions 选播放协议与签名的档位。
+//
+// Profile 留空走默认档（v04.06.04，PR #23 那档）；填 "v04.10.03" 走
+// App 7.4.5.32 的档（gzip body、device_level 1、/player/v1 路径）。
+type PlaybackOptions struct {
+	Profile string
+}
+
+// signProfileForPlayback 把播放档位映到签名档位，两档必须一致。
+func signProfileForPlayback(p protocol.PlaybackProfile) *sign.Profile {
+	if p.Name == protocol.PlaybackProfileV041003.Name {
+		return &sign.ProfileV041003
+	}
+	return &sign.ProfileV04604
+}
 
 // ResolvePlayback 加载一集的各清晰度地址、编码和码率。
 // 优先使用 V5 手机端协议，空响应或接口不支持时兼容旧播放接口。
 // 受保护的模型与 ErrDRMProtected 一起返回，可继续交给 ContentKey。
-func (c *Client) ResolvePlayback(ctx context.Context, episodeID string, _ PlaybackOptions) (*model.Playback, error) {
+func (c *Client) ResolvePlayback(ctx context.Context, episodeID string, opts PlaybackOptions) (*model.Playback, error) {
 	if !validID(episodeID) {
 		return nil, fmt.Errorf("invalid episode ID")
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	body, err := protocol.PlaybackV5Body(episodeID)
+	profile := protocol.PlaybackProfileByName(opts.Profile)
+	signer := &sign.PlaybackV5Signer{Profile: signProfileForPlayback(profile)}
+	body, err := protocol.PlaybackV5Body(profile, episodeID)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +56,7 @@ func (c *Client) ResolvePlayback(ctx context.Context, episodeID string, _ Playba
 			}
 			var query string
 			var headers map[string]string
-			query, headers, err = c.playbackSigner.Sign(protocol.PlaybackV5Pairs(c.identity(p)), c.clock().UnixMilli(), body, nil)
+			query, headers, err = signer.Sign(protocol.PlaybackV5Pairs(profile, c.identity(p)), c.clock().UnixMilli(), body, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -49,7 +64,10 @@ func (c *Client) ResolvePlayback(ctx context.Context, episodeID string, _ Playba
 			headers["User-Agent"] = protocol.PlaybackUserAgent(c.deviceOf(p))
 			headers["Accept"] = "application/json; charset=utf-8,application/x-protobuf"
 			headers["x-xs-from-web"] = "0"
-			raw, _, err = c.doRaw(ctx, "POST", c.apiOrigin+protocol.PathPlaybackV5+"?"+query, headers, body)
+			if profile.GzipBody {
+				headers["Content-Encoding"] = "gzip"
+			}
+			raw, _, err = c.doRaw(ctx, "POST", c.apiOrigin+profile.Path+"?"+query, headers, body)
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return nil, ctxErr
 			}

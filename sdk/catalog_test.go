@@ -462,18 +462,27 @@ func assertAnonymousWire(t *testing.T, seen []captured) {
 			if hit.Header.Get("lc") != "101" || hit.Header.Get("x-xs-from-web") != "0" || !strings.Contains(hit.Header.Get("User-Agent"), "com.phoenix.read/74332 ") {
 				t.Fatalf("playback headers = %v", hit.Header)
 			}
-			zr, err := gzip.NewReader(strings.NewReader(hit.Body))
-			if err != nil {
-				t.Fatalf("playback body is not gzip: %v", err)
+			// body 形态跟着当前档位走，见 protocol.PlaybackProfile。
+			plain := []byte(hit.Body)
+			if profile := protocol.DefaultPlaybackProfile; profile.GzipBody {
+				zr, err := gzip.NewReader(strings.NewReader(hit.Body))
+				if err != nil {
+					t.Fatalf("playback body is not gzip: %v", err)
+				}
+				if plain, err = io.ReadAll(zr); err != nil {
+					t.Fatal(err)
+				}
+				if hit.Header.Get("Content-Encoding") != "gzip" {
+					t.Fatal("gzip profile without Content-Encoding")
+				}
+			} else if hit.Header.Get("Content-Encoding") != "" {
+				t.Fatalf("plain profile with Content-Encoding %q", hit.Header.Get("Content-Encoding"))
 			}
-			plain, err := io.ReadAll(zr)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !strings.Contains(string(plain), `"mixed_video_id_map":{"1004":["7100000000000201"]}`) || !strings.Contains(string(plain), `"need_all_video_definition":true`) || !strings.Contains(string(plain), `"device_level":1`) {
+			level := fmt.Sprintf(`"device_level":%d`, protocol.DefaultPlaybackProfile.DeviceLevel)
+			if !strings.Contains(string(plain), `"mixed_video_id_map":{"1004":["7100000000000201"]}`) || !strings.Contains(string(plain), `"need_all_video_definition":true`) || !strings.Contains(string(plain), level) {
 				t.Fatalf("playback body = %s", plain)
 			}
-			if hit.Header.Get("Content-Encoding") != "gzip" || hit.Header.Get("x-medusa") == "" || hit.Header.Get("x-helios") == "" || hit.Header.Get("x-khronos") == "" || hit.Header.Get("x-ss-stub") == "" {
+			if hit.Header.Get("x-medusa") == "" || hit.Header.Get("x-helios") == "" || hit.Header.Get("x-khronos") == "" || hit.Header.Get("x-ss-stub") == "" {
 				t.Fatal("playback V5 signature missing")
 			}
 			for _, h := range []string{"x-argus", "x-ladon", "x-gorgon"} {

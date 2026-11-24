@@ -7,10 +7,11 @@ import (
 	"fmt"
 )
 
-// heliosV5 builds x-helios as the v04.10.03 SDK does: a 34-round ARX cipher
-// over "<ts>-<license>-<aid>", keyed from md5(random || aid). The random is
-// sent in the clear as the first 4 bytes.
-func heliosV5(ts, random uint32) string {
+// heliosV5 builds x-helios as the SDK does: a 34-round ARX cipher over
+// "<ts>-<license>-<aid>", keyed from md5(random || aid). The random is sent
+// in the clear as the first 4 bytes. The license is profile-specific.
+func heliosV5(p *Profile, ts, random uint32) string {
+	p = lookupProfile(p)
 	seed := md5Raw(append(le32(random), []byte(appID)...))
 	ascii := []byte(hex.EncodeToString(seed[:]))
 	words := make([]uint64, 4)
@@ -18,7 +19,7 @@ func heliosV5(ts, random uint32) string {
 		words[i] = binary.LittleEndian.Uint64(ascii[i*8:])
 	}
 	table := diffuse(words)
-	text := []byte(fmt.Sprintf("%d-%s-%s", ts, playbackV5License, appID))
+	text := []byte(fmt.Sprintf("%d-%s-%s", ts, p.License, appID))
 	padding := byte(16 - len(text)%16)
 	for range int(padding) {
 		text = append(text, padding)

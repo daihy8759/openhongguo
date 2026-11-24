@@ -8,12 +8,14 @@ import (
 )
 
 // PlaybackV5Signer 签名 V5 播放请求，可并发使用。
-type PlaybackV5Signer struct{}
+// Profile 选签名的档位；零值（或 NewPlaybackV5Signer）走 ProfileV04604。
+type PlaybackV5Signer struct{ Profile *Profile }
 
-// NewPlaybackV5Signer 返回播放签名器。x-medusa 里的进程信息由本包统一维护，
-// nowMillis 不再使用，保留参数是为了兼容调用方。
+// NewPlaybackV5Signer 返回播放签名器，默认用 v04.06.04 档（PR #23）。
+// x-medusa 里的进程信息由本包统一维护，nowMillis 不再使用，
+// 保留参数是为了兼容调用方。
 func NewPlaybackV5Signer(nowMillis int64) *PlaybackV5Signer {
-	return &PlaybackV5Signer{}
+	return &PlaybackV5Signer{Profile: &ProfileV04604}
 }
 
 // Sign 对实际发送的 gzip 请求体签名。查询串不添加 ts，选择分支时只调整 _rticket。
@@ -60,10 +62,11 @@ func (s *PlaybackV5Signer) Sign(pairs [][2]string, nowMillis int64, body []byte,
 		} else {
 			ent = *entropy
 		}
+		p := lookupProfile(s.Profile)
 		headers := map[string]string{
 			"x-khronos": strconv.FormatUint(uint64(ts), 10),
-			"x-helios":  heliosV5(ts, ent.HeliosRandom),
-			"x-medusa":  assembleMedusaV5(medusaIn, queryValue(query, "device_id"), requestMedusaEnv(query, queryValue(query, "device_id")), ent.medusaRandom()),
+			"x-helios":  heliosV5(p, ts, ent.HeliosRandom),
+			"x-medusa":  assembleMedusaV5(p, medusaIn, queryValue(query, "device_id"), requestMedusaEnv(query, queryValue(query, "device_id")), ent.medusaRandom()),
 		}
 		if body != nil {
 			headers["Content-Type"] = "application/json; charset=utf-8"

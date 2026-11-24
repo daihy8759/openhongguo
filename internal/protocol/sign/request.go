@@ -70,9 +70,9 @@ func signRequest(path string, pairs [][2]string, nowMillis int64, deviceID, vers
 		"x-khronos":                 strconv.FormatUint(uint64(khronos), 10),
 		"x-ladon":                   base64.StdEncoding.EncodeToString(be32(khronos)),
 		"x-argus":                   base64.StdEncoding.EncodeToString(le32(khronos)),
-		"x-gorgon":                  xGorgonFlags(query, body, hasBody, khronos, ent.GorgonRandom, env.flags()),
-		"x-helios":                  heliosV5(khronos, ent.HeliosRandom),
-		"x-medusa":                  assembleMedusaV5(medusaIn, deviceID, env, ent.medusaRandom()),
+		"x-gorgon":                  xGorgonFlags(&DefaultProfile, query, body, hasBody, khronos, ent.GorgonRandom, env.flags()),
+		"x-helios":                  heliosV5(&DefaultProfile, khronos, ent.HeliosRandom),
+		"x-medusa":                  assembleMedusaV5(&DefaultProfile, medusaIn, deviceID, env, ent.medusaRandom()),
 		"x-tt-dt":                   "",
 	}
 	if hasBody {

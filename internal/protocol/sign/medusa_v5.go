@@ -3,6 +3,7 @@ package sign
 import (
 	"encoding/base64"
 	"fmt"
+	"strconv"
 )
 
 // MedusaEnv is the device environment the v04.10.03 SDK reports inside
@@ -49,8 +50,9 @@ func DefaultMedusaEnv(launchMillis int64) MedusaEnv {
 		LaunchMillis: launchMillis,
 		Clock18:      766353820, Clock19: 16, Clock20: -1072050540,
 		Channel: "xiaomi_8662_64",
-		// v04.06.04 档（PR #23）的 field 24 数值。
-		UnH:     1879194040, Sts: 27, Fkd: 3672518972, Pd: -1872573247,
+		// field 24 的 un_h / fkd / pd。它们和设备状态绑定、服务端无法校验，
+		// 不随签名档位变化；这一组取自 PR #23 的真机抓包。
+		UnH: 1879194040, Sts: 27, Fkd: 3672518972, Pd: -1872573247,
 		Lp:     "2|520830913092|521433182354|2078052786776|1081701896",
 		Fl:     "0|0|2523408538|2586339478|997724116|0|0|0|0|606600138",
 		Status: medusaDeviceStatus,
@@ -65,13 +67,7 @@ type MedusaRandom struct {
 }
 
 const (
-	medusaV5Version = 5
-	// 回退到 PR #23 主张的 v04.06.04 档：服务端当前只接受这一档的常量。
-	// 与 playback_v5_constants.go 的 playbackV5License / Magic / SignKey 必须成组切换，
-	// 单独换一边会得到一个被服务端静默丢弃的混合体。
-	medusaV5SDKVersion = "v04.06.04-ml-android"
-	medusaV5SDKCode    = 0x04060400
-	medusaV5EnvVersion = "v04.06.04.03-bugfix"
+	medusaV5Version    = 5
 	medusaV5PackedHead = 0xca
 )
 
@@ -97,12 +93,13 @@ func newMedusaV5Input(query string, body []byte, ts uint32) (medusaV5Input, bool
 	return in, ok
 }
 
-// assembleMedusaV5 builds x-medusa as the v04.10.03 SDK does.
-func assembleMedusaV5(in medusaV5Input, deviceID string, env MedusaEnv, rnd MedusaRandom) string {
-	return sealMedusaV5(medusaV5Message(in, deviceID, env, rnd), in, rnd, env.flags())
+// assembleMedusaV5 builds x-medusa with the given profile.
+func assembleMedusaV5(p *Profile, in medusaV5Input, deviceID string, env MedusaEnv, rnd MedusaRandom) string {
+	p = lookupProfile(p)
+	return sealMedusaV5(p, medusaV5Message(p, in, deviceID, env, rnd), in, rnd, env.flags())
 }
 
-func medusaV5Message(in medusaV5Input, deviceID string, env MedusaEnv, rnd MedusaRandom) []byte {
+func medusaV5Message(p *Profile, in medusaV5Input, deviceID string, env MedusaEnv, rnd MedusaRandom) []byte {
 	ts := in.ts
 	const unset = 694367 // message field 15's counters when the SDK has not set them
 	counters := concat(protoSInt(1, unset), protoSInt(2, unset), protoSInt(3, unset), protoSInt(5, unset))
@@ -112,15 +109,15 @@ func medusaV5Message(in medusaV5Input, deviceID string, env MedusaEnv, rnd Medus
 		appVersion = protoString(7, env.Device.AppVersion)
 	}
 	return concat(
-		protoBytes(1, playbackV5Magic),
+		protoBytes(1, p.Magic),
 		protoSInt(2, medusaV5Version),
 		protoSInt(3, int64(rnd.Message)),
 		protoString(4, appID),
 		protoString(5, deviceID),
-		protoString(6, playbackV5License),
+		protoString(6, p.License),
 		appVersion,
-		protoString(8, medusaV5SDKVersion),
-		protoSInt(9, medusaV5SDKCode),
+		protoString(8, p.SDKVersion),
+		protoSInt(9, int64(p.SDKCode)),
 		protoBytes(10, env.flags()),
 		protoSInt(12, int64(ts)),
 		protoBytes(13, in.digest[:]),
@@ -129,12 +126,12 @@ func medusaV5Message(in medusaV5Input, deviceID string, env MedusaEnv, rnd Medus
 		protoSInt(17, int64(ts)),
 		protoString(20, "none"),
 		protoSInt(21, env.Status),
-		protoBytes(23, medusaV5Env(ts, deviceID, env, rnd)),
-		protoString(24, medusaV5JSON(env)),
+		protoBytes(23, medusaV5Env(p, ts, deviceID, env, rnd)),
+		protoString(24, medusaV5JSON(p, env)),
 	)
 }
 
-func medusaV5Env(ts uint32, deviceID string, env MedusaEnv, rnd MedusaRandom) []byte {
+func medusaV5Env(p *Profile, ts uint32, deviceID string, env MedusaEnv, rnd MedusaRandom) []byte {
 	if d := env.Device; d != nil {
 		uptime := int64(ts) - env.LaunchMillis/1000
 		if uptime < 1 {
@@ -146,7 +143,7 @@ func medusaV5Env(ts uint32, deviceID string, env MedusaEnv, rnd MedusaRandom) []
 		}
 		return concat(
 			protoSInt(1, uptime),
-			protoString(6, medusaV5EnvVersion),
+			protoString(6, p.EnvVersion),
 			protoSInt(7, env.PID),
 			protoString(8, env.Channel),
 			protoBytes(12, medusaV5DeviceBlock(deviceID, env, int64(ts)*1000+int64(rnd.Message%1000))),
@@ -159,10 +156,10 @@ func medusaV5Env(ts uint32, deviceID string, env MedusaEnv, rnd MedusaRandom) []
 		)
 	}
 	return concat(
-		protoString(6, medusaV5EnvVersion),
+		protoString(6, p.EnvVersion),
 		protoSInt(7, env.PID),
 		protoString(8, env.Channel),
-		protoBytes(12, medusaV5Device(deviceID, env)),
+		protoBytes(12, medusaV5Device(p, deviceID, env)),
 		protoEmpty(13),
 		protoString(14, notSet),
 		protoSInt(15, env.PPID),
@@ -178,15 +175,17 @@ const (
 )
 
 // medusaV5Device is environment field 12. Fields the emulator cannot answer
-// carry the SDK's placeholders: "!notset!" and -999999.
-func medusaV5Device(deviceID string, env MedusaEnv) []byte {
+// carry the SDK's placeholders: "!notset!" and -999999. Which placeholder tag
+// 7 takes depends on the profile.
+func medusaV5Device(p *Profile, deviceID string, env MedusaEnv) []byte {
 	out := concat(protoSInt(1, 1), protoString(3, appID), protoString(4, deviceID))
 	for tag := uint32(5); tag <= 40; tag++ {
 		switch {
-		case tag == 5 || tag == 6 || tag == 7 || (tag >= 11 && tag <= 13) || tag == 15 || tag == 22 || (tag >= 30 && tag <= 37):
-			// tag 7 在 v04.06.04 档是字符串占位符（v04.10.03 是整数 -999999）。
+		case tag == 7 && p.EnvTag7String:
 			out = append(out, protoString(tag, notSet)...)
-		case (tag >= 8 && tag <= 10) || tag == 14 || (tag >= 23 && tag <= 25) || tag == 27 || tag == 29 || tag == 38:
+		case tag == 5 || tag == 6 || (tag >= 11 && tag <= 13) || tag == 15 || tag == 22 || (tag >= 30 && tag <= 37):
+			out = append(out, protoString(tag, notSet)...)
+		case (tag >= 7 && tag <= 10) || tag == 14 || (tag >= 23 && tag <= 25) || tag == 27 || tag == 29 || tag == 38:
 			out = append(out, protoSInt(tag, unsetInt)...)
 		case tag >= 16 && tag <= 21:
 			out = append(out, protoFloat(tag, unsetInt)...)
@@ -197,19 +196,21 @@ func medusaV5Device(deviceID string, env MedusaEnv) []byte {
 	return out
 }
 
-// medusaV5JSON is message field 24. The v04.06.04 profile (PR #23) sends the
-// shorter form: no sts / lp / fl, and do is already 0. Sts, Lp and Fl stay on
-// MedusaEnv so the v04.10.03 vectors still unmarshal and so switching back is
-// a one-line change.
-func medusaV5JSON(env MedusaEnv) string {
-	return fmt.Sprintf(`{"cmr":16777216,"cmr2":16777216,"un_h":%d,"vpn":0,"kd":0,"fkd":%d,"pd":%d,"dyn":"","do":0,"tk":true}`,
-		env.UnH, env.Fkd, env.Pd)
+// medusaV5JSON is message field 24. The v04.06.04 profile sends the shorter
+// form: no sts / lp / fl. The numbers come from the device environment.
+func medusaV5JSON(p *Profile, env MedusaEnv) string {
+	if p.EnvJSONLegacy {
+		return fmt.Sprintf(`{"cmr":16777216,"cmr2":16777216,"un_h":%d,"vpn":0,"kd":0,"fkd":%d,"pd":%d,"dyn":"","do":0,"tk":true}`,
+			env.UnH, env.Fkd, env.Pd)
+	}
+	return fmt.Sprintf(`{"cmr":16777216,"cmr2":16777216,"un_h":%d,"vpn":0,"sts":%d,"kd":0,"fkd":%d,"pd":%d,"lp":%s,"fl":%s,"dyn":"","do":0,"tk":true}`,
+		env.UnH, env.Sts, env.Fkd, env.Pd, strconv.Quote(env.Lp), strconv.Quote(env.Fl))
 }
 
 // sealMedusaV5 encrypts a message into the x-medusa wire format.
-func sealMedusaV5(message []byte, in medusaV5Input, rnd MedusaRandom, flags []byte) string {
+func sealMedusaV5(p *Profile, message []byte, in medusaV5Input, rnd MedusaRandom, flags []byte) string {
 	ts := in.ts
-	hash, seed := keyHash(playbackV5SignKey, rnd.Key)
+	hash, seed := keyHash(p.SignKey, rnd.Key)
 	transformed := append(append([]byte(nil), flags...), xmxor(message, hash[:])...)
 	for i, j := 0, len(transformed)-1; i < j; i, j = i+1, j-1 {
 		transformed[i], transformed[j] = transformed[j], transformed[i]
@@ -219,10 +220,10 @@ func sealMedusaV5(message []byte, in medusaV5Input, rnd MedusaRandom, flags []by
 	}
 	check := uint32(0x18000001) | uint32(in.querySM3[0]&63)<<14 | uint32(in.digest[0]&63)<<8
 	packed := concat([]byte{medusaV5PackedHead}, le32(rnd.Packed), le32(check), transformed, []byte{byte(rnd.Key >> 16), byte(rnd.Key >> 24)})
-	key := md5Raw(playbackV5SignKey[:16])
-	iv := md5Raw(playbackV5SignKey[16:])
+	key := md5Raw(p.SignKey[:16])
+	iv := md5Raw(p.SignKey[16:])
 	encrypted := encryptPlaybackV5(packed, key[:], iv[:], ts)
-	prefix := concat(le32(medusaV5Version), playbackV5Magic)
+	prefix := concat(le32(medusaV5Version), p.Magic)
 	for i := range prefix {
 		prefix[i] ^= byte(ts >> (uint(i&3) * 8))
 	}

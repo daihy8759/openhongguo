@@ -36,11 +36,12 @@ func TestGorgonHeliosV5MatchSDK(t *testing.T) {
 		ts := uint32(ts64)
 		query := rawURL[strings.IndexByte(rawURL, '?')+1:]
 		g, _ := hex.DecodeString(gorgon)
-		if got := xGorgon(query, body, body != nil, ts, uint32(g[2])|uint32(g[3])<<8); got != gorgon {
+		// 向量是从 libmetasec_ml.so v04.10.03 里直接调的，固定绑那一档。
+		if got := xGorgonFlags(&ProfileV041003, query, body, body != nil, ts, uint32(g[2])|uint32(g[3])<<8, medusaEmulatorFlags); got != gorgon {
 			t.Errorf("x-gorgon = %s, want %s", got, gorgon)
 		}
 		h, _ := base64.StdEncoding.DecodeString(helios)
-		if got := heliosV5(ts, binary.LittleEndian.Uint32(h[:4])); got != helios {
+		if got := heliosV5(&ProfileV041003, ts, binary.LittleEndian.Uint32(h[:4])); got != helios {
 			t.Errorf("x-helios = %s, want %s", got, helios)
 		}
 		n++

@@ -56,7 +56,8 @@ func TestAssembleMedusaV5MatchesSDK(t *testing.T) {
 		if !ok {
 			t.Fatalf("vector %d selects an unsupported field-13 variant", n)
 		}
-		if got := assembleMedusaV5(in, deviceID, env, rnd); got != want {
+		// 向量是从 libmetasec_ml.so v04.10.03 里直接调的，固定绑那一档。
+		if got := assembleMedusaV5(&ProfileV041003, in, deviceID, env, rnd); got != want {
 			t.Errorf("vector %d (ts %d, body %v): x-medusa differs\n got %s\nwant %s", n, ts, body != nil, got, want)
 		}
 		n++
@@ -74,10 +75,10 @@ func TestDefaultMedusaEnvReportsDeviceStatus(t *testing.T) {
 		t.Fatalf("status = %d, want %d", got, medusaDeviceStatus)
 	}
 	in, _ := newMedusaV5Input("device_id=1234567890123456", nil, 1763460000) // the digest variant does not matter here
-	device := medusaV5Message(in, "1234567890123456", DefaultMedusaEnv(0), MedusaRandom{})
+	device := medusaV5Message(&ProfileV041003, in, "1234567890123456", DefaultMedusaEnv(0), MedusaRandom{})
 	emulator := DefaultMedusaEnv(0)
 	emulator.Status = medusaEmulatorStatus
-	if string(device) == string(medusaV5Message(in, "1234567890123456", emulator, MedusaRandom{})) {
+	if string(device) == string(medusaV5Message(&ProfileV041003, in, "1234567890123456", emulator, MedusaRandom{})) {
 		t.Fatal("status is not part of the message")
 	}
 	if want := string(protoSInt(21, medusaDeviceStatus)); !strings.Contains(string(device), want) {
