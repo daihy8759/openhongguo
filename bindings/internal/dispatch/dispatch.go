@@ -104,6 +104,13 @@ var methods = map[string]method{
 		}
 		return c.GetSeriesBatch(ctx, ids)
 	},
+	"preloadSeries": func(ctx context.Context, c *sdk.Client, a []json.RawMessage) (any, error) {
+		var ids []string
+		if err := arg(a, 0, &ids); err != nil {
+			return nil, err
+		}
+		return c.PreloadSeries(ctx, ids)
+	},
 	"listEpisodes": func(ctx context.Context, c *sdk.Client, a []json.RawMessage) (any, error) {
 		var id string
 		var o sdk.EpisodeOptions

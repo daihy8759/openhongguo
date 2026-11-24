@@ -77,3 +77,35 @@ func TestParsePackFieldsRejectsErrorEnvelope(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestPreloadSeriesBodyJoinsIDs(t *testing.T) {
+	body, err := PreloadSeriesBody([]string{" 7628202881140657177 ", "", "7621200213801176126"}, "1440")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		BizParam struct {
+			Source        int    `json:"source"`
+			ScreenWidth   string `json:"screen_width_px"`
+			AllDefinition bool   `json:"need_all_video_definition"`
+		} `json:"biz_param"`
+		DrScene  string `json:"dr_scene"`
+		SeriesID string `json:"series_id"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.SeriesID != "7628202881140657177,7621200213801176126" {
+		t.Fatalf("series_id = %q", got.SeriesID)
+	}
+	if got.DrScene != "preload" || got.BizParam.Source != 7 {
+		t.Fatalf("dr_scene/source = %q/%d", got.DrScene, got.BizParam.Source)
+	}
+	if got.BizParam.ScreenWidth != "1440" {
+		t.Fatalf("screen_width_px = %q", got.BizParam.ScreenWidth)
+	}
+	// 预加载只要详情骨架，和 App 抓包一致：不拉全部清晰度。
+	if got.BizParam.AllDefinition {
+		t.Fatal("preload must not ask for every definition")
+	}
+}

@@ -366,6 +366,7 @@ if errors.Is(err, sdk.ErrSignerUnavailable) {
 |---|---|---|
 | `GetSeries` | `getSeries(seriesId)` | 加载一部短剧的详情 |
 | `GetSeriesBatch` | `getSeriesBatch(seriesIds)` | 加载多部短剧及其分集，按请求顺序返回 |
+| `PreloadSeries` | `preloadSeries(seriesIds)` | 预热剧集详情 |
 | `ListEpisodes` | `listEpisodes(seriesId, options)` | 加载一部短剧的分集列表 |
 | `ListDanmaku` | `listDanmaku(seriesId, episodeId, options)` | 加载一集的弹幕，一次一页 |
 | `Seasons` | `seasons(seriesId)` | 列出多季短剧的全部季 |

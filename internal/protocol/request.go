@@ -575,3 +575,29 @@ func PlaybackBody(episodeID string) ([]byte, error) {
 		},
 	})
 }
+
+// PreloadSeriesBody is the series preload request. seriesID is comma-separated:
+// the shipped client preloads the next seasons with it.
+func PreloadSeriesBody(seriesIDs []string, screenWidth string) ([]byte, error) {
+	ids := make([]string, 0, len(seriesIDs))
+	for _, id := range seriesIDs {
+		if id = strings.TrimSpace(id); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return jsonMarshal(map[string]any{
+		"biz_param": map[string]any{
+			"detail_page_version":       0,
+			"disable_digg_stat":         false,
+			"disable_video_relate_book": false,
+			"need_all_video_definition": false,
+			"need_mp4_align":            false,
+			"screen_width_px":           screenWidth,
+			"source":                    7,
+			"use_os_player":             false,
+			"use_server_dns":            false,
+		},
+		"dr_scene":  "preload",
+		"series_id": strings.Join(ids, ","),
+	})
+}

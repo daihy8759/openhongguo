@@ -86,3 +86,7 @@ func ParsePackFields(raw []byte) (map[string]PackAlbumInfo, error) {
 	}
 	return out, nil
 }
+
+// PathSeriesPreload is the series-detail preload the shipped client fires ahead
+// of a season switch; it warms the same detail the page then reads.
+const PathSeriesPreload = "/novel/player/multi_video_detail/preload/v1"

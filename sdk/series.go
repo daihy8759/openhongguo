@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/beilunyang/openhongguo/internal/protocol"
@@ -82,6 +83,75 @@ func (c *Client) GetSeriesBatch(ctx context.Context, seriesIDs []string) ([]mode
 		}
 		return out, nil
 	})
+}
+
+// PreloadSeries 预热剧集详情。App 在切季前会先发这条请求，服务端据此提前
+// 生成详情；一次请求可带多个 series id（客户端用逗号拼接）。
+//
+// 响应里就是页面随后要读的同一份详情，所以解析结果一并返回，等价于一次
+// 批量详情读取。语义上是尽力而为：调用方可以忽略返回值和错误，
+// SDK 其他部分不依赖它。
+func (c *Client) PreloadSeries(ctx context.Context, seriesIDs []string) ([]model.SeriesDetail, error) {
+	return withFreshDevice(ctx, c, false, func(ctx context.Context) ([]model.SeriesDetail, error) {
+		var ids []string
+		seen := map[string]bool{}
+		for _, id := range seriesIDs {
+			if !validID(id) {
+				return nil, fmt.Errorf("invalid series ID %q", id)
+			}
+			if !seen[id] {
+				seen[id] = true
+				ids = append(ids, id)
+			}
+		}
+		if len(ids) == 0 {
+			return nil, nil
+		}
+		found := make(map[string]model.SeriesDetail, len(ids))
+		for start := 0; start < len(ids); start += seriesBatchSize {
+			chunk := ids[start:min(start+seriesBatchSize, len(ids))]
+			p, err := c.ensureSearchGuest(ctx)
+			if err != nil {
+				return nil, err
+			}
+			body, err := protocol.PreloadSeriesBody(chunk, screenWidthOf(c.deviceOf(p)))
+			if err != nil {
+				return nil, err
+			}
+			ticket := c.clock().UnixMilli()
+			rawQuery, headers := sign.SignPOST(protocol.PathSeriesPreload, protocol.DeviceQueryPairs(c.identity(p)), ticket, p.DeviceID, protocol.VersionName, body, nil)
+			raw, _, err := c.doRaw(ctx, "POST", c.apiOrigin+protocol.PathSeriesPreload+"?"+rawQuery, anonymousHeaders(c, p, ticket, headers), body)
+			if err != nil {
+				return nil, err
+			}
+			got, err := protocol.ParseSeriesBatch(raw)
+			if err != nil {
+				return nil, err
+			}
+			for id, d := range got {
+				found[id] = d
+			}
+		}
+		out := make([]model.SeriesDetail, 0, len(found))
+		for _, id := range ids {
+			if d, ok := found[id]; ok {
+				out = append(out, d)
+			}
+		}
+		return out, nil
+	})
+}
+
+// screenWidthOf is the short side of the device resolution, which is what the
+// preload request calls screen_width_px. It falls back to 1080.
+func screenWidthOf(d model.Device) string {
+	res := d.OrDefault().Resolution
+	if i := strings.IndexAny(res, "*x"); i > 0 {
+		if n, err := strconv.Atoi(res[:i]); err == nil && n > 0 {
+			return strconv.Itoa(n)
+		}
+	}
+	return "1080"
 }
 
 // ListEpisodes 加载一部短剧的分集列表。集数从 1 开始。
