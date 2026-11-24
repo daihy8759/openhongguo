@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	PathPlaybackV5      = "/novel/player/multi_video_model/v1/"
+	// PathPlaybackV5 是默认档（v04.10.03）的播放模型路径。
+	PathPlaybackV5      = "/novel/player/multi_video_model/player/v1"
 	PlaybackVersionCode = 74332
 	PlaybackVersionName = "7.4.3.32"
 )
@@ -45,23 +46,25 @@ var (
 	}
 
 	// PlaybackProfileV04604 是 PR #23 报回的那档：明文 body、device_level 4、
-	// 路径带尾斜杠、query 带 ts。
+	// 路径带尾斜杠、query 带 ts。2026 年实测这档也通（code=0、5 档清晰度），
+	// 所以服务端并不像 #23 说的“只接受旧档”；它保留作备选档。
 	PlaybackProfileV04604 = PlaybackProfile{
 		Name:        "v04.06.04",
-		Path:        PathPlaybackV5,
+		Path:        "/novel/player/multi_video_model/v1/",
 		GzipBody:    false,
 		DeviceLevel: 4,
 		QueryTS:     true,
 	}
 
-	// DefaultPlaybackProfile 是运行时的默认档。
-	DefaultPlaybackProfile = PlaybackProfileV04604
+	// DefaultPlaybackProfile 是运行时的默认档：跟 App 7.4.5.32 自带的
+	// 签名库一致，golden vector 可以兑，device_level 1 避开 bytevc2。
+	DefaultPlaybackProfile = PlaybackProfileV041003
 )
 
 // PlaybackProfileByName 空名返回默认档，未知名字也回退到默认档。
 func PlaybackProfileByName(name string) PlaybackProfile {
-	if name == PlaybackProfileV041003.Name {
-		return PlaybackProfileV041003
+	if name == PlaybackProfileV04604.Name {
+		return PlaybackProfileV04604
 	}
 	return DefaultPlaybackProfile
 }

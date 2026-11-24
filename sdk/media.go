@@ -14,18 +14,18 @@ import (
 
 // PlaybackOptions 选播放协议与签名的档位。
 //
-// Profile 留空走默认档（v04.06.04，PR #23 那档）；填 "v04.10.03" 走
-// App 7.4.5.32 的档（gzip body、device_level 1、/player/v1 路径）。
+// Profile 留空走默认档（v04.10.03，跟 App 7.4.5.32 的签名库一致）；
+// 填 "v04.06.04" 走 PR #23 那档（明文 body、device_level 4、/v1/ 路径）。
 type PlaybackOptions struct {
 	Profile string
 }
 
 // signProfileForPlayback 把播放档位映到签名档位，两档必须一致。
 func signProfileForPlayback(p protocol.PlaybackProfile) *sign.Profile {
-	if p.Name == protocol.PlaybackProfileV041003.Name {
-		return &sign.ProfileV041003
+	if p.Name == protocol.PlaybackProfileV04604.Name {
+		return &sign.ProfileV04604
 	}
-	return &sign.ProfileV04604
+	return &sign.ProfileV041003
 }
 
 // ResolvePlayback 加载一集的各清晰度地址、编码和码率。
