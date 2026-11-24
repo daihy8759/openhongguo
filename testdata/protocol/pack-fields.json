@@ -1,0 +1,7 @@
+{
+  "BaseResp": { "StatusCode": 0, "StatusMessage": "" },
+  "code": 0,
+  "message": "SUCCESS",
+  "log_id": "fixture-log",
+  "data": {}
+}

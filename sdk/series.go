@@ -210,27 +210,41 @@ func (c *Client) Seasons(ctx context.Context, seriesID string) (*model.Album, er
 		if err != nil {
 			return nil, err
 		}
+		// 合集归属以 book_pack_fields 为准：它给出 album_id、总季数/已上线季数
+		// 和本季在合集里的位置，比从标题或 search 推更可靠。
+		pack, hasPack := c.packAlbumInfo(ctx, series.ID)
+		albumID := series.RelatedAlbumID
+		if hasPack && pack.AlbumID != "" {
+			albumID = pack.AlbumID
+		}
 		if seasons, err := c.seriesSeasons(ctx, series.ID); err == nil && len(seasons) > 0 {
 			for i := range seasons {
 				if seasons[i].SeriesID == series.ID {
 					seasons[i].Status = series.Status
+					if hasPack && pack.SeriesInAlbumOrder > 0 {
+						seasons[i].Index = pack.SeriesInAlbumOrder
+					}
 				}
 			}
 			sortSeasons(seasons)
-			return &model.Album{
-				ID: series.RelatedAlbumID, Title: seasonBaseTitle(series.Title),
+			album := &model.Album{
+				ID: albumID, Title: seasonBaseTitle(series.Title),
 				SeasonCount: len(seasons), Seasons: seasons,
-			}, nil
+			}
+			applyPackCounts(album, pack, hasPack)
+			return album, nil
 		} else if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		if series.RelatedAlbumID != "" {
-			if album, err := c.GetAlbum(ctx, series.RelatedAlbumID, AlbumOptions{}); err == nil && len(album.Seasons) > 0 {
+		if albumID != "" {
+			if album, err := c.GetAlbum(ctx, albumID, AlbumOptions{}); err == nil && len(album.Seasons) > 0 {
+				applyPackCounts(album, pack, hasPack)
 				return album, nil
 			}
 		}
 		base := seasonBaseTitle(series.Title)
-		out := &model.Album{ID: series.RelatedAlbumID, Title: base}
+		out := &model.Album{ID: albumID, Title: base}
+		applyPackCounts(out, pack, hasPack)
 		if !series.IsMultiSeason && series.RelatedAlbumID == "" {
 			// 单季作品只是与无关条目同名；去搜索会把相似条目误当成别的季。
 			out.Seasons = []model.Season{{
@@ -292,6 +306,45 @@ func (c *Client) Seasons(ctx context.Context, seriesID string) (*model.Album, er
 
 // seriesSeasons 读取详情页的系列剧行，即带 from=single_col_same_ip_series 的
 // plan feed。
+// packAlbumInfo reads one series' album linkage from book_pack_fields on
+// DistributionHost. A single-season work has no linkage, so a miss is not an
+// error and callers fall back to the older paths.
+func (c *Client) packAlbumInfo(ctx context.Context, seriesID string) (protocol.PackAlbumInfo, bool) {
+	p, err := c.ensureSearchGuest(ctx)
+	if err != nil {
+		return protocol.PackAlbumInfo{}, false
+	}
+	body, err := protocol.PackFieldsBody([]string{seriesID})
+	if err != nil {
+		return protocol.PackAlbumInfo{}, false
+	}
+	ticket := c.clock().UnixMilli()
+	rawQuery, headers := sign.SignPOST(protocol.PathPackFields, protocol.DeviceQueryPairs(c.identity(p)), ticket, p.DeviceID, protocol.VersionName, body, nil)
+	raw, _, err := c.doRaw(ctx, "POST", c.distOrigin+protocol.PathPackFields+"?"+rawQuery, anonymousHeaders(c, p, ticket, headers), body)
+	if err != nil {
+		return protocol.PackAlbumInfo{}, false
+	}
+	infos, err := protocol.ParsePackFields(raw)
+	if err != nil {
+		return protocol.PackAlbumInfo{}, false
+	}
+	info, ok := infos[seriesID]
+	return info, ok
+}
+
+// applyPackCounts fills the season counters book_pack_fields reports.
+func applyPackCounts(album *model.Album, pack protocol.PackAlbumInfo, ok bool) {
+	if !ok {
+		return
+	}
+	if pack.AlbumSerialCount > 0 {
+		album.TotalSeasonCount = pack.AlbumSerialCount
+	}
+	if pack.RealAlbumSerialCount > 0 {
+		album.OnlineSeasonCount = pack.RealAlbumSerialCount
+	}
+}
+
 func (c *Client) seriesSeasons(ctx context.Context, seriesID string) ([]model.Season, error) {
 	p, err := c.ensureSearchGuest(ctx)
 	if err != nil {

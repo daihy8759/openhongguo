@@ -10,6 +10,11 @@ class Album {
   final String coverUrl;
   final String coverExpiresAt;
   final int seasonCount;
+  /// TotalSeasonCount 是合集里的总季数（含还没上线的季），
+  /// OnlineSeasonCount 是其中已上线的季数。
+  /// App 徽标上的“已上线 N 季”就是 OnlineSeasonCount。
+  final int totalSeasonCount;
+  final int onlineSeasonCount;
   final List<Season> seasons;
 
   const Album({
@@ -19,6 +24,8 @@ class Album {
     this.coverUrl = '',
     this.coverExpiresAt = '',
     this.seasonCount = 0,
+    this.totalSeasonCount = 0,
+    this.onlineSeasonCount = 0,
     this.seasons = const [],
   });
 
@@ -30,6 +37,8 @@ class Album {
         coverUrl: _asString(j['cover_url']),
         coverExpiresAt: _asString(j['cover_expires_at']),
         seasonCount: _asInt(j['season_count']),
+        totalSeasonCount: _asInt(j['total_season_count']),
+        onlineSeasonCount: _asInt(j['online_season_count']),
         seasons: _asList(j['seasons'], (e) => Season.fromJson(_asMap(e))),
       );
 
@@ -41,6 +50,8 @@ class Album {
         'cover_url': coverUrl,
         'cover_expires_at': coverExpiresAt,
         'season_count': seasonCount,
+        'total_season_count': totalSeasonCount,
+        'online_season_count': onlineSeasonCount,
         'seasons': seasons.map((e) => e.toJson()).toList(),
       };
 }

@@ -10,15 +10,22 @@ public struct Album: Codable, Hashable, Sendable {
     public var coverUrl: String
     public var coverExpiresAt: String
     public var seasonCount: Int
+    /// TotalSeasonCount 是合集里的总季数（含还没上线的季），
+    /// OnlineSeasonCount 是其中已上线的季数。
+    /// App 徽标上的“已上线 N 季”就是 OnlineSeasonCount。
+    public var totalSeasonCount: Int
+    public var onlineSeasonCount: Int
     public var seasons: [Season]
 
-    public init(id: String = "", title: String = "", description: String = "", coverUrl: String = "", coverExpiresAt: String = "", seasonCount: Int = 0, seasons: [Season] = []) {
+    public init(id: String = "", title: String = "", description: String = "", coverUrl: String = "", coverExpiresAt: String = "", seasonCount: Int = 0, totalSeasonCount: Int = 0, onlineSeasonCount: Int = 0, seasons: [Season] = []) {
         self.id = id
         self.title = title
         self.description = description
         self.coverUrl = coverUrl
         self.coverExpiresAt = coverExpiresAt
         self.seasonCount = seasonCount
+        self.totalSeasonCount = totalSeasonCount
+        self.onlineSeasonCount = onlineSeasonCount
         self.seasons = seasons
     }
 
@@ -29,6 +36,8 @@ public struct Album: Codable, Hashable, Sendable {
         case coverUrl = "cover_url"
         case coverExpiresAt = "cover_expires_at"
         case seasonCount = "season_count"
+        case totalSeasonCount = "total_season_count"
+        case onlineSeasonCount = "online_season_count"
         case seasons
     }
 
@@ -40,6 +49,8 @@ public struct Album: Codable, Hashable, Sendable {
         self.coverUrl = try c.decodeIfPresent(String.self, forKey: .coverUrl) ?? ""
         self.coverExpiresAt = try c.decodeIfPresent(String.self, forKey: .coverExpiresAt) ?? ""
         self.seasonCount = try c.decodeIfPresent(Int.self, forKey: .seasonCount) ?? 0
+        self.totalSeasonCount = try c.decodeIfPresent(Int.self, forKey: .totalSeasonCount) ?? 0
+        self.onlineSeasonCount = try c.decodeIfPresent(Int.self, forKey: .onlineSeasonCount) ?? 0
         self.seasons = try c.decodeIfPresent([Season].self, forKey: .seasons) ?? []
     }
 }

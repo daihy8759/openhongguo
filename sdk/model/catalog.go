@@ -385,7 +385,12 @@ type Album struct {
 	CoverURL       string    `json:"cover_url,omitempty"`
 	CoverExpiresAt time.Time `json:"cover_expires_at,omitempty"`
 	SeasonCount    int       `json:"season_count,omitempty"`
-	Seasons        []Season  `json:"seasons,omitempty"`
+	// TotalSeasonCount 是合集里的总季数（含还没上线的季），
+	// OnlineSeasonCount 是其中已上线的季数。
+	// App 徽标上的“已上线 N 季”就是 OnlineSeasonCount。
+	TotalSeasonCount  int      `json:"total_season_count,omitempty"`
+	OnlineSeasonCount int      `json:"online_season_count,omitempty"`
+	Seasons           []Season `json:"seasons,omitempty"`
 }
 
 // Suggestion 是一条搜索建议。Text 是搜索框显示的文本；

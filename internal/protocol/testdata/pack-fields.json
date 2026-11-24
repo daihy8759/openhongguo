@@ -1,0 +1,30 @@
+{
+  "BaseResp": { "StatusCode": 0, "StatusMessage": "" },
+  "code": 0,
+  "data": {
+    "7628202881140657177": {
+      "action_info": {
+        "has_urge_update": false,
+        "show_urge_update": false,
+        "urge_update_count": 0
+      },
+      "album_info": {
+        "album_id": 7624475539960499262,
+        "album_serial_count": 16,
+        "real_album_serial_count": 14,
+        "series_in_album_order": 2
+      }
+    },
+    "7621200213801176126": {
+      "album_info": {
+        "album_id": 7624475539960499262,
+        "album_serial_count": 16,
+        "real_album_serial_count": 14,
+        "series_in_album_order": 1
+      }
+    },
+    "7709114780467858456": {
+      "base_info": {}
+    }
+  }
+}

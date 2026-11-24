@@ -22,6 +22,8 @@ Album 是多季的合集，来自 /novel/player/album_detail/v1/。
 | `cover_url` | `coverUrl` | string |  |
 | `cover_expires_at` | `coverExpiresAt` | 时间（RFC 3339 字符串） |  |
 | `season_count` | `seasonCount` | int |  |
+| `total_season_count` | `totalSeasonCount` | int | TotalSeasonCount 是合集里的总季数（含还没上线的季），OnlineSeasonCount 是其中已上线的季数。App 徽标上的“已上线 N 季”就是 OnlineSeasonCount。 |
+| `online_season_count` | `onlineSeasonCount` | int |  |
 | `seasons` | `seasons` | [Season](#season) 列表 |  |
 
 ### CategoryPage

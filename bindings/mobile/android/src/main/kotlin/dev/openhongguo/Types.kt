@@ -13,6 +13,13 @@ data class Album(
     val coverUrl: String = "",
     val coverExpiresAt: String = "",
     val seasonCount: Int = 0,
+    /**
+     * TotalSeasonCount 是合集里的总季数（含还没上线的季），
+     * OnlineSeasonCount 是其中已上线的季数。
+     * App 徽标上的“已上线 N 季”就是 OnlineSeasonCount。
+     */
+    val totalSeasonCount: Int = 0,
+    val onlineSeasonCount: Int = 0,
     val seasons: List<Season> = emptyList(),
 ) {
     /** 编码成与 Go SDK 相同的 JSON。 */
@@ -23,6 +30,8 @@ data class Album(
         put("cover_url", coverUrl)
         put("cover_expires_at", coverExpiresAt)
         put("season_count", seasonCount)
+        put("total_season_count", totalSeasonCount)
+        put("online_season_count", onlineSeasonCount)
         put("seasons", JSONArray(seasons.map { it.toJson() }))
     }
 
@@ -35,6 +44,8 @@ data class Album(
             coverUrl = o.opt("cover_url").asString(),
             coverExpiresAt = o.opt("cover_expires_at").asString(),
             seasonCount = o.opt("season_count").asInt(),
+            totalSeasonCount = o.opt("total_season_count").asInt(),
+            onlineSeasonCount = o.opt("online_season_count").asInt(),
             seasons = o.opt("seasons").asList { Season.fromJson(it.asObject()) },
         )
     }

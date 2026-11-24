@@ -53,6 +53,10 @@ const (
 	// PathShortFilter is the short-drama filter page (筛选). The reading host
 	// answers 404; it lives on DistributionHost.
 	PathShortFilter = "/reading/distribution/category/landpage/v1/"
+	// PathPackFields serves the book pack field surface on DistributionHost.
+	// The shipped client uses it to read a series' album linkage:
+	// album_id, album_serial_count, series_in_album_order, real_album_serial_count.
+	PathPackFields = "/reading/distribution/book_pack_fields/inner_feed_detail/v1"
 	// DistributionHost serves the /reading/distribution/ and activity_api
 	// families. It is APIHost; it stays separate so APIOrigin can point at
 	// reading.snssdk.com, which answers 404 for them.

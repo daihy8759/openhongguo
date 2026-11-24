@@ -19,6 +19,13 @@ export interface Album {
   cover_url?: string;
   cover_expires_at?: string;
   season_count?: number;
+  /**
+   * TotalSeasonCount 是合集里的总季数（含还没上线的季），
+   * OnlineSeasonCount 是其中已上线的季数。
+   * App 徽标上的“已上线 N 季”就是 OnlineSeasonCount。
+   */
+  total_season_count?: number;
+  online_season_count?: number;
   seasons?: Season[];
 }
 

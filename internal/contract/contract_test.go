@@ -113,6 +113,7 @@ func (f *fixtureTransport) Do(_ context.Context, req *sdk.Request) (*sdk.Respons
 		protocol.PathCategory:        "category-front.json",
 		protocol.PathCategoryLanding: "category-landing.json",
 		protocol.PathRankCells:       "rank-rows.json",
+		protocol.PathPackFields:      "pack-fields.json",
 		protocol.PathProfile:         "person.json",
 		protocol.PathSubscribeList:   "new-releases.json",
 	}[u.Path]
