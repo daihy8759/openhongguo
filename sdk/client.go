@@ -396,11 +396,40 @@ func applyGuestCookies(p *DeviceProfile, cookies map[string]string) {
 	if v := cookies["store-region-src"]; v != "" {
 		p.StoreRegionSrc = v
 	}
+	if v := cookies["odin_tt"]; v != "" {
+		p.OdinTT = v
+	}
+	if v := cookies["uid_tt"]; v != "" {
+		p.UidTT = v
+	}
 }
 
+// guestCookie 是注册响应下发的匿名身份 cookie。字段顺序固定，
+// 区域两部分为空时不写成空值。odin_tt 和 uid_tt 在旧档案里可能没有。
 func guestCookie(p *DeviceProfile) string {
-	return "passport_csrf_token=; passport_csrf_token_default=; store-region=" + p.StoreRegion +
+	cookie := "passport_csrf_token=; passport_csrf_token_default=; store-region=" + p.StoreRegion +
 		"; store-region-src=" + p.StoreRegionSrc + "; install_id=" + p.InstallID + "; ttreq=" + p.TTReq
+	if p.OdinTT != "" {
+		cookie += "; odin_tt=" + p.OdinTT
+	}
+	if p.UidTT != "" {
+		cookie += "; uid_tt=" + p.UidTT
+	}
+	return cookie
+}
+
+// regionHeaders 把注册下发的区域信息补成请求头。
+// 服务端把区域也放在 header 里比对，缺了不影响读，但播放链路会按它选节点。
+func regionHeaders(p *DeviceProfile, headers map[string]string) {
+	if p == nil {
+		return
+	}
+	if p.StoreRegion != "" {
+		headers["x-tt-store-region"] = p.StoreRegion
+	}
+	if p.StoreRegionSrc != "" {
+		headers["x-tt-store-region-src"] = p.StoreRegionSrc
+	}
 }
 
 func (c *Client) randomInt31() int32 {

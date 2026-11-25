@@ -246,6 +246,7 @@ func anonymousHeaders(c *Client, p *DeviceProfile, ticket int64, headers map[str
 	if p != nil && p.TTReq != "" {
 		headers["Cookie"] = guestCookie(p)
 	}
+	regionHeaders(p, headers)
 	return headers
 }
 

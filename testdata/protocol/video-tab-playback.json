@@ -1,0 +1,14 @@
+{
+  "code": 0,
+  "message": "SUCCESS",
+  "data": {
+    "video_model_data": {
+      "7100000000000301": {
+        "expire_time": 1893456000,
+        "video_width": 1080,
+        "video_height": 1920,
+        "video_model": "{\"status\":10,\"video_id\":\"v-video-tab-fixture\",\"media_type\":\"video\",\"video_duration\":42,\"url_expire\":1893456000,\"video_list\":[{\"main_url\":\"https://media.invalid/video-tab-360.mp4\",\"backup_url\":\"https://media.invalid/video-tab-360-backup.mp4\",\"video_meta\":{\"definition\":\"360p\",\"quality\":\"normal\",\"codec_type\":\"bytevc1\",\"vwidth\":360,\"vheight\":640,\"bitrate\":173610,\"size\":3853830},\"encrypt_info\":{\"encrypt\":true,\"kid\":\"00000000000000000000000000000000\",\"spade_a\":\"AAAA\",\"encryption_method\":\"cenc-aes-ctr\"}}]}"
+      }
+    }
+  }
+}

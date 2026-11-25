@@ -127,7 +127,8 @@ public class MetasecEmulator extends AbstractJni {
     private static final byte[] EMULATOR_STATUS = {
             (byte) 0xa2, 0x01, 0x04, 'n', 'o', 'n', 'e', (byte) 0xa8, 0x01, (byte) 0xf2, 0x05};
     private static final int STATUS_BYTE = 9;
-    private static final byte DEVICE_STATUS_BYTE = (byte) 0xe2; // zigzag(369) = e2 05
+    /** zigzag(369) = e2 05; the emulator's zigzag(377) is f2 05. */
+    private static final byte[] DEVICE_STATUS_BYTES = {(byte) 0xe2, 0x05};
     /** The last four bytes of the x-medusa sign key. */
     private static final byte[] SIGN_KEY_TAIL = {0x26, (byte) 0xe9, 0x48, (byte) 0x9d};
 
@@ -172,7 +173,7 @@ public class MetasecEmulator extends AbstractJni {
                 continue;
             }
             for (int at = indexOf(region, EMULATOR_STATUS, 0); at >= 0; at = indexOf(region, EMULATOR_STATUS, at + 1)) {
-                b.mem_write(map.base + at + STATUS_BYTE, new byte[]{DEVICE_STATUS_BYTE});
+                b.mem_write(map.base + at + STATUS_BYTE, DEVICE_STATUS_BYTES);
                 patched++;
             }
         }

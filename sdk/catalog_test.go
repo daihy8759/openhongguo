@@ -387,7 +387,7 @@ func TestSearchSendsNextOffset(t *testing.T) {
 
 func assertAnonymousWire(t *testing.T, seen []captured) {
 	t.Helper()
-	var registered, discovered, searched, detailed, played bool
+	var registered, discovered, searched, detailed, played, preloaded, tabbed bool
 	for _, hit := range seen {
 		if hit.Header.Get("Cookie") != "" || hit.Header.Get("Authorization") != "" || hit.Header.Get("X-Tt-Token") != "" {
 			t.Fatalf("credential header on %s", hit.Path)
@@ -448,18 +448,40 @@ func assertAnonymousWire(t *testing.T, seen []captured) {
 			if hit.Header.Get("x-gorgon") == "" || hit.Header.Get("x-ss-stub") == "" {
 				t.Fatal("series signature missing")
 			}
+		case protocol.PathPlaybackPreload:
+			// 取源链路第一步：preload 带 dr_scene=preload 和 device_level 2。
+			preloaded = true
+			if hit.Method != http.MethodPost || hit.Header.Get("Content-Encoding") != "gzip" {
+				t.Fatalf("preload request = %s %v", hit.Method, hit.Header)
+			}
+			plain := gunzip(t, hit.Body)
+			if !strings.Contains(plain, `"dr_scene":"preload"`) || !strings.Contains(plain, `"device_level":2`) {
+				t.Fatalf("preload body = %s", plain)
+			}
+		case protocol.PathVideoTab:
+			tabbed = true
+			if hit.Method != http.MethodGet {
+				t.Fatalf("video_tab method %s", hit.Method)
+			}
+			q, _ := url.ParseQuery(hit.RawQuery)
+			if q.Get("video_id") != "7100000000000201" || q.Get("device_level") != "1" || q.Get("version_code") != "74532" {
+				t.Fatalf("video_tab query = %s", hit.RawQuery)
+			}
+			if hit.Header.Get("x-medusa") == "" || hit.Header.Get("x-helios") == "" || !strings.Contains(hit.Header.Get("User-Agent"), "com.phoenix.read/74532 ") {
+				t.Fatalf("video_tab signature or UA missing: %v", hit.Header)
+			}
 		case protocol.PathPlaybackV5:
 			played = true
 			q, _ := url.ParseQuery(hit.RawQuery)
-			if q.Get("version_code") != "74332" || q.Get("device_id") != "7100000000000001" || q.Get("iid") != "7100000000000002" {
+			if q.Get("version_code") != "74532" || q.Get("device_id") != "7100000000000001" || q.Get("iid") != "7100000000000002" {
 				t.Fatalf("playback query = %s", hit.RawQuery)
 			}
-			// The 7.4.3.32 client's order: device_platform first, the ticket fourth,
+			// The 7.4.5.32 client's order: device_platform first, the ticket fourth,
 			// and the profile's own phone rather than a fixed template.
 			if !strings.HasPrefix(hit.RawQuery, "device_platform=android&os=android&ssmix=a&_rticket=") || q.Get("device_type") != model.DefaultDevice.Model || q.Get("resolution") != model.DefaultDevice.Resolution {
 				t.Fatalf("playback query order or device = %s", hit.RawQuery)
 			}
-			if hit.Header.Get("lc") != "101" || hit.Header.Get("x-xs-from-web") != "0" || !strings.Contains(hit.Header.Get("User-Agent"), "com.phoenix.read/74332 ") {
+			if hit.Header.Get("lc") != "101" || hit.Header.Get("x-xs-from-web") != "0" || !strings.Contains(hit.Header.Get("User-Agent"), "com.phoenix.read/74532 ") {
 				t.Fatalf("playback headers = %v", hit.Header)
 			}
 			// body 形态跟着当前档位走，见 protocol.PlaybackProfile。
@@ -497,8 +519,22 @@ func assertAnonymousWire(t *testing.T, seen []captured) {
 		}
 	}
 	if !registered || !discovered || !searched || !detailed || !played {
-		t.Fatalf("missing calls reg=%v discover=%v search=%v series=%v playback=%v", registered, discovered, searched, detailed, played)
+		t.Fatalf("missing calls reg=%v discover=%v search=%v series=%v playback=%v preload=%v tab=%v", registered, discovered, searched, detailed, played, preloaded, tabbed)
 	}
+}
+
+// gunzip reads a gzip request body the client signed and sent.
+func gunzip(t *testing.T, body string) string {
+	t.Helper()
+	zr, err := gzip.NewReader(strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("body is not gzip: %v", err)
+	}
+	plain, err := io.ReadAll(zr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(plain)
 }
 
 func TestAccountRequiredIsDistinctFromDRM(t *testing.T) {

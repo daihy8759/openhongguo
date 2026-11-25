@@ -327,6 +327,7 @@ func playSeries(ctx context.Context, client *sdk.Client, rec *recorder, cfg Conf
 		return checks
 	}
 
+	rec.forget(protocol.PathVideoTab)
 	rec.forget(protocol.PathPlaybackV5)
 	rec.forget(protocol.PathPlayback)
 	pb, err := client.ResolvePlayback(ctx, page.Items[0].ID, sdk.PlaybackOptions{})
@@ -342,11 +343,17 @@ func playSeries(ctx context.Context, client *sdk.Client, rec *recorder, cfg Conf
 			playbackFixture = "drm-playback.json"
 		}
 	}
-	// ResolvePlayback tries V5 first and only then the legacy route, so a
-	// recorded legacy body means V5 came back empty and the fallback answered.
+	// ResolvePlayback 的取源链路是 video_tab → multi_video_model → 旧接口，
+	// 取第一个真正答了模型的端点来对照 fixture。
 	playbackPath := protocol.PathPlayback
-	if !rec.has(playbackPath) {
+	switch {
+	case rec.has(protocol.PathVideoTab):
+		playbackPath = protocol.PathVideoTab
+		playbackFixture = "video-tab-playback.json"
+	case rec.has(protocol.PathPlaybackV5):
 		playbackPath = protocol.PathPlaybackV5
+	}
+	if playbackPath != protocol.PathPlayback {
 		rec.rewrite(playbackPath, func(b []byte) []byte { return episodeEnvelope(b, page.Items[0].ID) })
 	}
 	checks = append(checks, rec.check(cfg, name+" playback", playbackFixture, playbackPath, err))
@@ -522,6 +529,18 @@ func episodeEnvelope(body []byte, episodeID string) []byte {
 	}
 	entry, ok := data[episodeID]
 	if !ok {
+		// video_tab 把模型放在 data.video_model_data[episodeID]。
+		var nested map[string]json.RawMessage
+		if json.Unmarshal(data["video_model_data"], &nested) == nil {
+			if entry, ok = nested[episodeID]; ok {
+				doc["data"] = entry
+				out, err := json.Marshal(doc)
+				if err != nil {
+					return body
+				}
+				return out
+			}
+		}
 		var group map[string]json.RawMessage
 		if json.Unmarshal(data["1004"], &group) != nil {
 			return body

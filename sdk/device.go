@@ -30,6 +30,10 @@ type DeviceProfile struct {
 	TTReq          string `json:"ttreq,omitempty"`
 	StoreRegion    string `json:"store_region,omitempty"`
 	StoreRegionSrc string `json:"store_region_src,omitempty"`
+	// OdinTT 和 UidTT 也是注册响应设置的 cookie，服务端用它关联设备与区域，
+	// 后续请求原样带上。
+	OdinTT string `json:"odin_tt,omitempty"`
+	UidTT  string `json:"uid_tt,omitempty"`
 	// CreatedAt 是档案的生成时间（UTC）。
 	CreatedAt time.Time `json:"created_at"`
 	// Device 是档案注册时使用的手机，每次请求都出示它。

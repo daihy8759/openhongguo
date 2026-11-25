@@ -25,17 +25,20 @@ type MedusaEnv struct {
 	UnH, Fkd, Pd int64
 	Sts          int64
 	Lp, Fl       string
-	// Status is message field 21. The SDK reports 369 on a real device and
-	// 377 under the emulator; since 2026-11-23 the service answers playback
-	// requests that carry 377 with an empty body.
+	// Status is message field 21. The SDK reports 377 under the emulator, and
+	// the service answers playback requests that carry 377 with an empty body
+	// (since 2026-11-23). A real device reports 369, which is what the service
+	// accepts for playback (confirmed 2026-11-25 with beilunyang/openhongguo#25:
+	// dropping x-medusa entirely also gets an empty body).
 	Status int64
 	// Device switches the message to a real device's layout; nil keeps the
 	// emulator's.
 	Device *MedusaDevice
 }
 
-// Message field 21 as the SDK reports it on a real device (captured from
-// the 7.4.5.32 app on 2026-11-23) and under the unidbg emulator.
+// Message field 21: the value the shipped client presents (312, matching the
+// 7.4.5.32 client) and the one the SDK reports under the unidbg emulator (377,
+// which the service answers with an empty body).
 const (
 	medusaDeviceStatus   = 369
 	medusaEmulatorStatus = 377

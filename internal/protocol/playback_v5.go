@@ -11,9 +11,18 @@ import (
 
 const (
 	// PathPlaybackV5 是默认档（v04.10.03）的播放模型路径。
-	PathPlaybackV5      = "/novel/player/multi_video_model/player/v1"
-	PlaybackVersionCode = 74332
-	PlaybackVersionName = "7.4.3.32"
+	PathPlaybackV5 = "/novel/player/multi_video_model/player/v1"
+	// PathPlaybackPreload 是播放前的预加载端点（dr_scene=preload）。
+	PathPlaybackPreload = "/novel/player/multi_video_model/preload/v1"
+	// PathVideoTab 是播放页的节点列表端点，无请求体；它直接返回
+	// data.video_model_data，是当前唯一稳定可用的取源入口。
+	PathVideoTab = "/reading/bookapi/video_tab/multi_video_model/v1/"
+	// PlaybackVersionCode 与 PlaybackVersionName 是播放链路出示的 App 版本，
+	// 统一为 7.4.5.32 / 74532（旧版 7.4.3.32 / 74332）。
+	PlaybackVersionCode = 74532
+	PlaybackVersionName = "7.4.5.32"
+	// VideoTabUserAgentTemplate 是 video_tab 这条 GET 链路用的整机 UA 模板。
+	VideoTabUserAgentTemplate = "com.phoenix.read/74532 (Linux; U; Android %s; zh_CN; %s; Build/%s; Cronet/TTNetVersion:8d40f833 2026-03-03 QuicVersion:21ac1950 2025-11-18)"
 )
 
 // PlaybackProfile 是一档播放协议的线格式（路径 / body 形态 / 设备档位 /
@@ -36,13 +45,23 @@ type PlaybackProfile struct {
 
 var (
 	// PlaybackProfileV041003 是 App 7.4.5.32 的档：gzip body、device_level 1、
-	// 路径带 player 段。
+	// 路径带 player 段。dr_scene 已经下放到 preload 预处理，
+	// 正式取源不再带（实测带上会让服务端在取源阶段直接返回空体）。
 	PlaybackProfileV041003 = PlaybackProfile{
 		Name:        "v04.10.03",
-		Path:        "/novel/player/multi_video_model/player/v1",
+		Path:        PathPlaybackV5,
 		GzipBody:    true,
 		DeviceLevel: 1,
-		DrScene:     "player",
+	}
+
+	// PlaybackProfilePreload 是取源前的预加载档：device_level 2 +
+	// dr_scene=preload，单独走 preload 路径。
+	PlaybackProfilePreload = PlaybackProfile{
+		Name:        "preload",
+		Path:        PathPlaybackPreload,
+		GzipBody:    true,
+		DeviceLevel: 2,
+		DrScene:     "preload",
 	}
 
 	// PlaybackProfileV04604 是 PR #23 报回的那档：明文 body、device_level 4、
@@ -62,14 +81,18 @@ var (
 )
 
 // PlaybackProfileByName 空名返回默认档，未知名字也回退到默认档。
+// "preload" 返回预加载档。
 func PlaybackProfileByName(name string) PlaybackProfile {
-	if name == PlaybackProfileV04604.Name {
+	switch name {
+	case PlaybackProfileV04604.Name:
 		return PlaybackProfileV04604
+	case PlaybackProfilePreload.Name:
+		return PlaybackProfilePreload
 	}
 	return DefaultPlaybackProfile
 }
 
-// PlaybackUserAgent is the Cronet User-Agent the 7.4.3.32 client sends with
+// PlaybackUserAgent is the Cronet User-Agent the 7.4.5.32 client sends with
 // the V5 playback request: UserAgent's format with the playback version.
 func PlaybackUserAgent(d model.Device) string {
 	d = d.OrDefault()
@@ -77,8 +100,15 @@ func PlaybackUserAgent(d model.Device) string {
 		Package, PlaybackVersionCode, d.OSVersion, d.Model, d.Build)
 }
 
-// PlaybackV5Pairs is the V5 playback query in the order the 7.4.3.32 client
-// sends it (captured 2026-11-18), with the profile's device and anonymous
+// VideoTabUserAgent is the User-Agent the video_tab GET carries; it is
+// PlaybackUserAgent built from the same device.
+func VideoTabUserAgent(d model.Device) string {
+	d = d.OrDefault()
+	return fmt.Sprintf(VideoTabUserAgentTemplate, d.OSVersion, d.Model, d.Build)
+}
+
+// PlaybackV5Pairs is the V5 playback query in the order the shipped client
+// sends it (captured 2026-11-18, version fields bumped to 7.4.5.32), with the profile's device and anonymous
 // install. The empty _rticket marks where the signer puts the ticket; order
 // is part of the signature.
 func PlaybackV5Pairs(p PlaybackProfile, id SearchIdentity) [][2]string {
@@ -131,6 +161,40 @@ func PlaybackV5Pairs(p PlaybackProfile, id SearchIdentity) [][2]string {
 		return pairs
 	}
 	return base
+}
+
+// VideoTabPairs 是 video_tab 这条无请求体 GET 的 query。
+// device_level 跟着取源档位走（默认 1），不带 dr_scene。
+func VideoTabPairs(episodeID string, id SearchIdentity, deviceLevel int) [][2]string {
+	d := id.Device.OrDefault()
+	version := strconv.Itoa(PlaybackVersionCode)
+	return [][2]string{
+		{"aid", AID},
+		{"app_name", AppName},
+		{"version_code", version},
+		{"version_name", PlaybackVersionName},
+		{"channel", d.Channel},
+		{"device_platform", DevicePlatform},
+		{"device_type", d.Model},
+		{"device_brand", d.Brand},
+		{"resolution", d.Resolution},
+		{"dpi", strconv.Itoa(d.DPI)},
+		{"os_api", strconv.Itoa(d.OSAPI)},
+		{"os_version", d.OSVersion},
+		{"update_version_code", version},
+		{"iid", id.InstallID},
+		{"cdid", id.CDID},
+		{"device_id", id.DeviceID},
+		{"video_id", episodeID},
+		{"video_id_type", "0"},
+		{"device_level", strconv.Itoa(deviceLevel)},
+		{"need_all_video_definition", "1"},
+		{"need_mp4_align", "0"},
+		{"use_os_player", "0"},
+		{"video_platform", "1024"},
+		{"source", "0"},
+		{"from_video_id", ""},
+	}
 }
 
 // PlaybackV5Body 返回这一档要发送的 body；签名和发送必须用同一份字节。

@@ -22,6 +22,8 @@ func NewPlaybackV5Signer(nowMillis int64) *PlaybackV5Signer {
 // pairs 里已有 _rticket 时就地填写（保持客户端的参数顺序），否则追加在末尾。
 func (s *PlaybackV5Signer) Sign(pairs [][2]string, nowMillis int64, body []byte, entropy *Entropy) (string, map[string]string, error) {
 	ts := uint32(nowMillis / 1000)
+	// 无请求体时保持 16 字节全 0：v04.10.03 SDK 的 golden vector 就是按这个口径
+	// 产出的（见 testdata/medusa_v5.tsv 里 body 为 "-" 的向量）。
 	bodyMD5 := [16]byte{}
 	if body != nil {
 		bodyMD5 = md5Raw(body)

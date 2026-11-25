@@ -98,6 +98,10 @@ func (f *fixtureTransport) Do(_ context.Context, req *sdk.Request) (*sdk.Respons
 	if strings.HasPrefix(u.Path, "/novel/commentapi/comment/list/") {
 		return f.file("danmaku-response.json"), nil
 	}
+	if u.Path == protocol.PathPlaybackPreload {
+		// 线上 preload 现在对匿名设备回 200 + 空体；给空体让链路继续走下去。
+		return &sdk.Response{StatusCode: 200}, nil
+	}
 	if u.Path == protocol.PathSeriesBatch {
 		return f.file("series-batch.json"), nil
 	}
@@ -108,6 +112,7 @@ func (f *fixtureTransport) Do(_ context.Context, req *sdk.Request) (*sdk.Respons
 		protocol.PathSeries:          "series-response.json",
 		protocol.PathPlayback:        "clear-playback.json",
 		protocol.PathPlaybackV5:      "clear-playback.json",
+		protocol.PathVideoTab:        "video-tab-playback.json",
 		protocol.PathSuggest:         "suggest-response.json",
 		protocol.PathCue:             "cue-response.json",
 		protocol.PathCategory:        "category-front.json",
